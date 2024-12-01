@@ -133,7 +133,7 @@ void loop() {
   Serial.println(last_bpm);
 
   if (bpm != bpm_at_prev){
-    
+    //
   }
 
   bpm_at_prev = bpm;
