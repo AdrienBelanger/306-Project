@@ -130,7 +130,6 @@ void loop() {
     if (current_time - last_clock_time >= clock_interval) {
       last_clock_time = current_time;
       usbMIDI.sendRealTime(usbMIDI.Clock); // Send MIDI Clock pulse
-      Serial.println("MIDI Clock Pulse Sent");
     }
   }
 
