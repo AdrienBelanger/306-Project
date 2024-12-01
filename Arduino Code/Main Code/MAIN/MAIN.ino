@@ -14,9 +14,7 @@ String message = "";
 
 unsigned long last_time_of_hit = 0;
 
-unsigned long last_beat_time = 0;
-unsigned long square_display_start_time = 0; // Time when the square was last displayed
-
+unsigned long last_clock_time = 0; // For MIDI Clock timing
 int interval = 0;
 
 int bpm = 0;
@@ -26,8 +24,6 @@ int bpm_at_prev = 0;
 int last_bpm = 0;
 
 int cur_state = 0;
-
-bool square_displayed = false; // Tracks if the square is currently displayed
 
 void setup() {
   lcd.begin(16, 2);
@@ -41,6 +37,7 @@ void setup() {
   Serial.begin(9600);
 
   last_time_of_hit = millis();
+  last_clock_time = millis();
 }
 
 void loop() {
@@ -126,43 +123,16 @@ void loop() {
     lcd.print(bpm);
   }
 
-  if (bpm != bpm_at_prev) {
-    count_beats = 0;
-    usbMIDI.sendNoteOn(50,127,1);
-    delay(10);
-    usbMIDI.sendNoteOff(50,0,1);
-  }
-
-  unsigned long current_time = millis();
+  // Send MIDI Clock messages
   if (bpm > 0) {
-    int beat_interval = 60000 / bpm; // Calculate time per beat in milliseconds
-    if (current_time - last_beat_time >= beat_interval) {
-      last_beat_time = current_time;
-      count_beats += 1;
-      Serial.print("Beats at this BPM: ");
-      Serial.println(count_beats);
-
-      // Send a MIDI note (e.g., Note On and Note Off for a specific key)
-      usbMIDI.sendNoteOn(60, 127, 1); // Note C4, Velocity 127, Channel 1
-
-      if (bpm < 180){
-      square_display_start_time = current_time;
-      square_displayed = true;
-      lcd.setCursor(15, 1);
-      lcd.print("\xFF");} // Display a custom square character (or use "O")
-      delay(10);
-      usbMIDI.sendNoteOff(60, 0, 1);  // Note C4, Velocity 0, Channel 1
+    unsigned long current_time = millis();
+    int clock_interval = 60000 / (bpm * 24); // Calculate interval between MIDI Clock pulses
+    if (current_time - last_clock_time >= clock_interval) {
+      last_clock_time = current_time;
+      usbMIDI.sendRealTime(usbMIDI.Clock); // Send MIDI Clock pulse
+      Serial.println("MIDI Clock Pulse Sent");
     }
   }
-
-  // Remove the square after 100ms
-  if (square_displayed && current_time - square_display_start_time >= 200) {
-    lcd.setCursor(15, 1);
-    lcd.print(" "); // Clear the square
-    square_displayed = false;
-  }
-
-
 
   bpm_at_prev = bpm;
 }
