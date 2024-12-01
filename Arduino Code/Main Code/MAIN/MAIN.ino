@@ -12,8 +12,9 @@ String lastMessage = "";
 String message = "";
 
 unsigned long last_time_of_hit = 0;
+unsigned long second_last_time_of_hit = 0; 
 unsigned long last_beat_time = 0;
-unsigned long last_clock_time = 0; // For MIDI Clock timing
+unsigned long last_clock_time = 0; 
 unsigned long square_display_start_time = 0;
 
 int interval = 0;
@@ -22,17 +23,17 @@ int bpm_at_prev = 0;
 int last_bpm = 0;
 int cur_state = 0;
 
-bool square_displayed = false; // Tracks if the square is currently displayed
+bool square_displayed = false;
 
 void setup() {
   lcd.begin(16, 2);
   
-  pinMode(6, INPUT_PULLUP); // pedal
-  pinMode(19, INPUT_PULLUP); // pedal
+  pinMode(6, INPUT_PULLUP); 
+  pinMode(19, INPUT_PULLUP);
   
-  pinMode(22, INPUT_PULLUP); // rotary switch
-  pinMode(21, INPUT_PULLUP); // rotary switch
-  pinMode(20, INPUT_PULLUP); // rotary switch
+  pinMode(22, INPUT_PULLUP);
+  pinMode(21, INPUT_PULLUP);
+  pinMode(20, INPUT_PULLUP);
 
   Serial.begin(9600);
 
@@ -41,17 +42,17 @@ void setup() {
 }
 
 void loop() {
-  // PEDALS INPUT
+  
   int pedal1State = digitalRead(6);
   pedal_one = (pedal1State == LOW) ? 0 : 1;
 
   int pedal2State = digitalRead(19);
   pedal_two = (pedal2State == LOW) ? 0 : 1;
 
-  // ROTARY SWITCH INPUT
-  int state0 = 1 - digitalRead(22); // right
-  int state1 = 1 - digitalRead(21); // center
-  int state2 = 1 - digitalRead(20); // left
+  
+  int state0 = 1 - digitalRead(22); 
+  int state1 = 1 - digitalRead(21); 
+  int state2 = 1 - digitalRead(20); 
 
   // MAIN CODE
   if (state0 == 1 && state1 == 0 && state2 == 0) {
@@ -69,7 +70,7 @@ void loop() {
 
   if (message != lastMessage) {
     lcd.setCursor(0, 0);
-    lcd.print("                "); // Clear previous message
+    lcd.print("                ");
     lcd.setCursor(0, 0);
     lcd.print(message);
     lastMessage = message;
@@ -79,18 +80,23 @@ void loop() {
     }
   }
 
-  if (cur_state != 0 && pedal_one == 1 && pedal_two == 1) { // if welcome, ignore the BPM
-    interval = millis() - last_time_of_hit;
+  if (cur_state != 0 && pedal_one == 1 && pedal_two == 1) { 
+    unsigned long current_time = millis();
+    interval = current_time - last_time_of_hit;
     if (interval > 200) {
-      last_time_of_hit = millis();
-      bpm = 60000 / interval;
+      second_last_time_of_hit = last_time_of_hit; 
+      last_time_of_hit = current_time;
 
-      lcd.setCursor(0, 1);
-      lcd.print("                ");
-      lcd.setCursor(0, 1);
-      lcd.print("BPM: ");
-      lcd.setCursor(5, 1);
-      lcd.print(bpm);
+      if (second_last_time_of_hit > 0) { 
+        bpm = 60000 / (last_time_of_hit - second_last_time_of_hit);
+
+        lcd.setCursor(0, 1);
+        lcd.print("                ");
+        lcd.setCursor(0, 1);
+        lcd.print("BPM: ");
+        lcd.setCursor(5, 1);
+        lcd.print(bpm);
+      }
     }
   }
 
@@ -108,35 +114,34 @@ void loop() {
 
   // MIDI Clock sending
   if (bpm > 0) {
-    int clock_interval = 60000 / (bpm * 24); // Calculate interval between MIDI Clock pulses
+    int clock_interval = 60000 / (bpm * 24); 
     if (current_time - last_clock_time >= clock_interval) {
       last_clock_time = current_time;
-      usbMIDI.sendRealTime(usbMIDI.Clock); // Send MIDI Clock pulse
+      usbMIDI.sendRealTime(usbMIDI.Clock); 
     }
 
-    // Beat counting and square display
-    int beat_interval = 60000 / bpm; // Calculate time per beat in milliseconds
+    int beat_interval = 60000 / bpm; 
     if (current_time - last_beat_time >= beat_interval) {
       last_beat_time = current_time;
       count_beats += 1;
       Serial.print("Beats at this BPM: ");
       Serial.println(count_beats);
 
-      usbMIDI.sendNoteOn(60, 127, 1); // Note C4, Velocity 127, Channel 1
-      if (bpm < 180) {
+      
+      
         square_display_start_time = current_time;
         square_displayed = true;
         lcd.setCursor(15, 1);
-        lcd.print("\xFF"); // Display a square character
-      }
+        lcd.print("\xFF");
+      
       delay(10);
-      usbMIDI.sendNoteOff(60, 0, 1); // Note C4, Velocity 0, Channel 1
+      
     }
 
-    // Remove square after 200ms
+  
     if (square_displayed && current_time - square_display_start_time >= 200) {
       lcd.setCursor(15, 1);
-      lcd.print(" "); // Clear the square
+      lcd.print(" "); 
       square_displayed = false;
     }
   }
