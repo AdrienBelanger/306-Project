@@ -43,100 +43,118 @@ void setup() {
 
 void loop() {
   
-  int pedal1State = digitalRead(6);
-  pedal_one = (pedal1State == LOW) ? 0 : 1;
 
-  int pedal2State = digitalRead(19);
-  pedal_two = (pedal2State == LOW) ? 0 : 1;
+  // ############################## INPUT ##############################
+    int pedal1State = digitalRead(6);
+    pedal_one = (pedal1State == LOW) ? 0 : 1;
 
+    int pedal2State = digitalRead(19);
+    pedal_two = (pedal2State == LOW) ? 0 : 1;
+
+    
+    int state0 = 1 - digitalRead(22); 
+    int state1 = 1 - digitalRead(21); 
+    int state2 = 1 - digitalRead(20); 
   
-  int state0 = 1 - digitalRead(22); 
-  int state1 = 1 - digitalRead(21); 
-  int state2 = 1 - digitalRead(20); 
+  // ############################## MODE SWITCHING ##############################
+    if (state0 == 1 && state1 == 0 && state2 == 0) {
+      message = "    WELCOME";
+      lcd.setCursor(0, 1);
+      lcd.print("                ");
 
-  // MAIN CODE
-  if (state0 == 1 && state1 == 0 && state2 == 0) {
-    message = "    WELCOME";
-    lcd.setCursor(0, 1);
-    lcd.print("                ");
+
+      if (cur_state != 0) { // Reset variables only when entering WELCOME state
+      bpm = 0;
+      count_beats = 0;
+      last_time_of_hit = 0;
+      second_last_time_of_hit = 0;
+      last_bpm = 0;
+      square_displayed = false;
+      }
+
     cur_state = 0;
-  } else if (state0 == 0 && state1 == 1 && state2 == 0) { 
-    message = "  FOLLOW MODE";
-    cur_state = 1;
-  } else if (state0 == 0 && state1 == 0 && state2 == 1) { 
-    message = "   HOLD MODE";
-    cur_state = 2;
-  }
 
-  if (message != lastMessage) {
-    lcd.setCursor(0, 0);
-    lcd.print("                ");
-    lcd.setCursor(0, 0);
-    lcd.print(message);
-    lastMessage = message;
 
-    if (cur_state == 2) {
-      last_bpm = bpm;
+      cur_state = 0;
+    } else if (state0 == 0 && state1 == 1 && state2 == 0) { 
+      message = "  FOLLOW MODE";
+      cur_state = 1;
+    } else if (state0 == 0 && state1 == 0 && state2 == 1) { 
+      message = "   HOLD MODE";
+      cur_state = 2;
     }
-  }
 
-  if (cur_state != 0 && pedal_one == 1 && pedal_two == 1) { 
-    unsigned long current_time = millis();
-    interval = current_time - last_time_of_hit;
-    if (interval > 200) {
-      second_last_time_of_hit = last_time_of_hit; 
-      last_time_of_hit = current_time;
+    if (message != lastMessage) {
+      lcd.setCursor(0, 0);
+      lcd.print("                ");
+      lcd.setCursor(0, 0);
+      lcd.print(message);
+      lastMessage = message;
 
-      if (second_last_time_of_hit > 0) { 
-        bpm = 60000 / (last_time_of_hit - second_last_time_of_hit);
-
-        lcd.setCursor(0, 1);
-        lcd.print("                ");
-        lcd.setCursor(0, 1);
-        lcd.print("BPM: ");
-        lcd.setCursor(5, 1);
-        lcd.print(bpm);
+      if (cur_state == 2) {
+        last_bpm = bpm;
       }
     }
-  }
 
-  if (cur_state == 2 && pedal_one == 0 && pedal_two == 0 && bpm != last_bpm) {
-    bpm = last_bpm;
-    lcd.setCursor(0, 1);
-    lcd.print("                ");
-    lcd.setCursor(0, 1);
-    lcd.print("BPM: ");
-    lcd.setCursor(5, 1);
-    lcd.print(bpm);
-  }
+  // ############################## BPM CALCULATION ##############################
+    if (cur_state != 0 && pedal_one == 1 && pedal_two == 1) { 
+      unsigned long current_time = millis();
+      interval = current_time - last_time_of_hit;
+      if (interval > 200) {
+        second_last_time_of_hit = last_time_of_hit; 
+        last_time_of_hit = current_time;
 
-  unsigned long current_time = millis();
+        if (second_last_time_of_hit > 0) { 
+          bpm = 60000 / (last_time_of_hit - second_last_time_of_hit);
 
-  // MIDI Clock sending
-  if (bpm > 0) {
-    int clock_interval = 60000 / (bpm * 24); 
-    if (current_time - last_clock_time >= clock_interval) {
-      last_clock_time = current_time;
-      usbMIDI.sendRealTime(usbMIDI.Clock); 
+          lcd.setCursor(0, 1);
+          lcd.print("                ");
+          lcd.setCursor(0, 1);
+          lcd.print("BPM: ");
+          lcd.setCursor(5, 1);
+          lcd.print(bpm);
+        }
+      }
     }
 
-    int beat_interval = 60000 / bpm; 
-    if (current_time - last_beat_time >= beat_interval) {
-      last_beat_time = current_time;
-      count_beats += 1;
-      Serial.print("Beats at this BPM: ");
-      Serial.println(count_beats);
-
-      
-      
-        square_display_start_time = current_time;
-        square_displayed = true;
-        lcd.setCursor(15, 1);
-        lcd.print("\xFF");
-      
-      delay(10);
-      
+    if (cur_state == 2 && pedal_one == 0 && pedal_two == 0 && bpm != last_bpm) {
+      bpm = last_bpm;
+      lcd.setCursor(0, 1);
+      lcd.print("                ");
+      lcd.setCursor(0, 1);
+      lcd.print("BPM: ");
+      lcd.setCursor(5, 1);
+      lcd.print(bpm);
     }
+
+  // ############################## MIDI CLOCK ##############################
+    unsigned long current_time = millis();
+
+  
+    if (bpm > 0) {
+      int clock_interval = 60000 / (bpm * 24); 
+      if (current_time - last_clock_time >= clock_interval) {
+        last_clock_time = current_time;
+        usbMIDI.sendRealTime(usbMIDI.Clock); 
+      }
+
+      int beat_interval = 60000 / bpm; 
+      if (current_time - last_beat_time >= beat_interval) {
+        last_beat_time = current_time;
+        count_beats += 1;
+        Serial.print("Beats at this BPM: ");
+        Serial.println(count_beats);
+
+        
+        
+          square_display_start_time = current_time;
+          square_displayed = true;
+          lcd.setCursor(15, 1);
+          lcd.print("\xFF");
+        
+        delay(10);
+        
+      }
 
   
     if (square_displayed && current_time - square_display_start_time >= 200) {
